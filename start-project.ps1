@@ -66,7 +66,7 @@ Write-Host "[4/6] Starting Advisor API..."
 Start-Process powershell -ArgumentList `
     "-NoExit", `
     "-Command", `
-    "& '.\.venv\Scripts\Activate.ps1'; uvicorn advisor_api.main:app --reload --port 8001"
+    "& '.\venv\Scripts\Activate.ps1'; uvicorn advisor_api.main:app --reload --port 8001"
 
 
 # --------------------------------------------
@@ -117,4 +117,5 @@ Write-Host "Scenario Service : http://localhost:8000"
 Write-Host "Advisor API      : http://localhost:8001"
 Write-Host "Kubeflow UI      : http://localhost:8081"
 Write-Host "Ray Dashboard    : http://localhost:8265"
+Write-Host "Frontend         : http://localhost:5173"
 Write-Host ""
