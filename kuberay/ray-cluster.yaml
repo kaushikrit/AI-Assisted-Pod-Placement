@@ -33,19 +33,19 @@ spec:
 
           resources:
             requests:
-              cpu: "500m"
-              memory: "512Mi"
-            limits:
               cpu: "1"
-              memory: "1Gi"
+              memory: "2Gi"
+            limits:
+              cpu: "2"
+              memory: "3Gi"
 
   workerGroupSpecs:
 
-  - replicas: 3
+  - replicas: 2
 
-    minReplicas: 3
+    minReplicas: 2
 
-    maxReplicas: 6
+    maxReplicas: 4
 
     groupName: workers
 
@@ -63,7 +63,7 @@ spec:
           resources:
             requests:
               cpu: "500m"
-              memory: "512Mi"
+              memory: "768Mi"
             limits:
               cpu: "1"
-              memory: "1Gi"
+              memory: "1536Mi"
