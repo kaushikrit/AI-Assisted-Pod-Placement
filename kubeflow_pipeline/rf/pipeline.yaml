@@ -138,8 +138,8 @@ deploymentSpec:
           : predictions,\n    })\n\n    print(\"=\" * 60)\n    print(\"Calculating\
           \ Top-1 Agreement\")\n    print(\"=\" * 60)\n\n    true_best = (\n     \
           \   results_df\n        .groupby(\"scenario_id\")[\"true_score\"]\n    \
-          \    .idxmax()\n    )\n\n    pred_best = (\n        results_df\n       \
-          \ .groupby(\"scenario_id\")[\"predicted_score\"]\n        .idxmax()\n  \
+          \    .idxmin()\n    )\n\n    pred_best = (\n        results_df\n       \
+          \ .groupby(\"scenario_id\")[\"predicted_score\"]\n        .idxmin()\n  \
           \  )\n\n    true_best_rows = results_df.loc[true_best]\n    pred_best_rows\
           \ = results_df.loc[pred_best]\n\n    matches = 0\n\n    for scenario_id\
           \ in true_best_rows[\"scenario_id\"]:\n\n        true_index = true_best_rows[\n\
