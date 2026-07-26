@@ -1,8 +1,0 @@
-pandas
-numpy
-scikit-learn
-joblib
-minio
-xgboost
-catboost
-kfp==2.14.4

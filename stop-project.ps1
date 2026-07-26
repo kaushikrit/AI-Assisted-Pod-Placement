@@ -8,11 +8,11 @@ Write-Host "========================================"
 
 
 # --------------------------------------------
-# STEP 1: Stop Uvicorn / Python services
+# STEP 1: Stop Uvicorn services
 # --------------------------------------------
 
 Write-Host ""
-Write-Host "[1/4] Stopping Uvicorn services..."
+Write-Host "[1/5] Stopping Uvicorn services..."
 
 Get-CimInstance Win32_Process |
 Where-Object {
@@ -28,11 +28,11 @@ Write-Host "Uvicorn services stopped."
 
 
 # --------------------------------------------
-# STEP 2: Stop kubectl port-forward processes
+# STEP 2: Stop kubectl port-forwards
 # --------------------------------------------
 
 Write-Host ""
-Write-Host "[2/4] Stopping Kubernetes port forwards..."
+Write-Host "[2/5] Stopping Kubernetes port forwards..."
 
 Get-CimInstance Win32_Process |
 Where-Object {
@@ -48,11 +48,11 @@ Write-Host "Port forwards stopped."
 
 
 # --------------------------------------------
-# STEP 3: Stop frontend npm dev server
+# STEP 3: Stop frontend
 # --------------------------------------------
 
 Write-Host ""
-Write-Host "[3/4] Stopping frontend..."
+Write-Host "[3/5] Stopping frontend..."
 
 Get-CimInstance Win32_Process |
 Where-Object {
@@ -68,11 +68,29 @@ Write-Host "Frontend stopped."
 
 
 # --------------------------------------------
-# STEP 4: Stop Minikube
+# STEP 4: Stop MinIO
 # --------------------------------------------
 
 Write-Host ""
-Write-Host "[4/4] Stopping Minikube..."
+Write-Host "[4/5] Stopping MinIO..."
+
+$running = docker ps --filter "name=minio" --format "{{.Names}}"
+
+if ($running) {
+    docker stop minio | Out-Null
+    Write-Host "MinIO stopped."
+}
+else {
+    Write-Host "MinIO already stopped."
+}
+
+
+# --------------------------------------------
+# STEP 5: Stop Minikube
+# --------------------------------------------
+
+Write-Host ""
+Write-Host "[5/5] Stopping Minikube..."
 
 minikube stop
 
@@ -83,10 +101,6 @@ else {
     Write-Host "WARNING: Minikube may not have stopped correctly."
 }
 
-
-# --------------------------------------------
-# DONE
-# --------------------------------------------
 
 Write-Host ""
 Write-Host "========================================"
