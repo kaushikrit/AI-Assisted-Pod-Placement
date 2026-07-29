@@ -1,6 +1,6 @@
 # PIPELINE DEFINITION
 # Name: pod-placement-training-pipeline
-# Description: Voting Regressor Training Pipeline (RF, XGBoost, AdaBoost, CatBoost)
+# Description: Voting Regressor Training Pipeline (RF, XGBoost, CatBoost, GBR, ExtraTrees)
 components:
   comp-evaluate-model:
     executorLabel: exec-evaluate-model
@@ -18,7 +18,15 @@ components:
           artifactType:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
+        x_train:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
         y_test:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        y_train:
           artifactType:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
@@ -132,14 +140,15 @@ deploymentSpec:
 
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\ndef evaluate_model(\n    model: Input[Model],\n    x_test: Input[Dataset],\n\
-          \    y_test: Input[Dataset],\n    scenario_test: Input[Dataset],\n    metrics:\
-          \ Output[Metrics],\n    metrics_csv: Output[Dataset],\n):\n    import joblib\n\
-          \    import pandas as pd\n    from sklearn.metrics import mean_squared_error,\
-          \ mean_absolute_error\n\n    def compute_top1_agreement(results_df):\n \
-          \       true_best = (\n            results_df\n            .groupby(\"scenario_id\"\
-          )[\"true_score\"]\n            .idxmin()\n        )\n        pred_best =\
-          \ (\n            results_df\n            .groupby(\"scenario_id\")[\"predicted_score\"\
+          \ *\n\ndef evaluate_model(\n    model: Input[Model],\n    x_train: Input[Dataset],\n\
+          \    y_train: Input[Dataset],\n    x_test: Input[Dataset],\n    y_test:\
+          \ Input[Dataset],\n    scenario_test: Input[Dataset],\n    metrics: Output[Metrics],\n\
+          \    metrics_csv: Output[Dataset],\n):\n    import joblib\n    import pandas\
+          \ as pd\n    from sklearn.metrics import mean_squared_error, mean_absolute_error\n\
+          \n    def compute_top1_agreement(results_df):\n        true_best = (\n \
+          \           results_df\n            .groupby(\"scenario_id\")[\"true_score\"\
+          ]\n            .idxmin()\n        )\n        pred_best = (\n           \
+          \ results_df\n            .groupby(\"scenario_id\")[\"predicted_score\"\
           ]\n            .idxmin()\n        )\n\n        true_best_rows = results_df.loc[true_best]\n\
           \        pred_best_rows = results_df.loc[pred_best]\n\n        matches =\
           \ 0\n        for scenario_id in true_best_rows[\"scenario_id\"]:\n     \
@@ -148,36 +157,48 @@ deploymentSpec:
           \ = pred_best_rows[\n                pred_best_rows[\"scenario_id\"] ==\
           \ scenario_id\n            ].index[0]\n            if true_index == pred_index:\n\
           \                matches += 1\n\n        return matches / len(true_best_rows)\n\
-          \n    def compute_all_metrics(y_true, y_pred, scenario_ids):\n        rmse\
+          \n    def compute_test_metrics(y_true, y_pred, scenario_ids):\n        rmse\
           \ = mean_squared_error(y_true, y_pred) ** 0.5\n        mae = mean_absolute_error(y_true,\
           \ y_pred)\n\n        results_df = pd.DataFrame({\n            \"scenario_id\"\
           : scenario_ids,\n            \"true_score\": y_true,\n            \"predicted_score\"\
           : y_pred,\n        })\n        top1 = compute_top1_agreement(results_df)\n\
           \n        return rmse, mae, top1\n\n    print(\"=\" * 60)\n    print(\"\
           Loading model bundle\")\n    print(\"=\" * 60)\n\n    trained_models = joblib.load(model.path)\n\
-          \n    print(\"=\" * 60)\n    print(\"Loading test dataset\")\n    print(\"\
-          =\" * 60)\n\n    X_test = pd.read_csv(x_test.path)\n    y_test_df = pd.read_csv(y_test.path)\n\
-          \    scenario_df = pd.read_csv(scenario_test.path)\n\n    y_true = y_test_df[\"\
-          score\"]\n    scenario_ids = scenario_df[\"scenario_id\"]\n\n    print(f\"\
-          Testing Samples : {len(X_test)}\")\n\n    print(\"=\" * 60)\n    print(\"\
-          Generating Predictions\")\n    print(\"=\" * 60)\n\n    predictions = {}\n\
-          \    for name, mdl in trained_models.items():\n        predictions[name]\
-          \ = mdl.predict(X_test)\n\n    print(\"=\" * 60)\n    print(\"Calculating\
-          \ Metrics Per Model\")\n    print(\"=\" * 60)\n\n    rows = []\n    for\
-          \ name, preds in predictions.items():\n        rmse, mae, top1 = compute_all_metrics(y_true,\
-          \ preds, scenario_ids)\n        rows.append({\n            \"model\": name,\n\
-          \            \"rmse\": rmse,\n            \"mae\": mae,\n            \"\
-          top1_agreement\": top1,\n        })\n\n        print(f\"[{name}] RMSE: {rmse:.4f}\
-          \ | MAE: {mae:.4f} | Top-1: {top1:.4f}\")\n\n    metrics_df = pd.DataFrame(rows)\n\
-          \n    print(\"=\" * 60)\n    print(\"Saving Metrics CSV\")\n    print(\"\
-          =\" * 60)\n\n    metrics_df.to_csv(metrics_csv.path, index=False)\n\n  \
-          \  print(f\"Metrics CSV saved at : {metrics_csv.path}\")\n\n    print(\"\
-          =\" * 60)\n    print(\"Logging Voting Regressor Metrics\")\n    print(\"\
-          =\" * 60)\n\n    voting_row = metrics_df[metrics_df[\"model\"] == \"voting_regressor\"\
-          ].iloc[0]\n    metrics.log_metric(\"RMSE\", float(voting_row[\"rmse\"]))\n\
-          \    metrics.log_metric(\"MAE\", float(voting_row[\"mae\"]))\n    metrics.log_metric(\"\
-          Top1_Agreement\", float(voting_row[\"top1_agreement\"]))\n\n    print(\"\
-          =\" * 60)\n    print(\"Evaluation Completed\")\n    print(\"=\" * 60)\n\n"
+          \n    print(\"=\" * 60)\n    print(\"Loading train and test datasets\")\n\
+          \    print(\"=\" * 60)\n\n    X_train = pd.read_csv(x_train.path)\n    y_train_true\
+          \ = pd.read_csv(y_train.path)[\"score\"]\n\n    X_test = pd.read_csv(x_test.path)\n\
+          \    y_test_df = pd.read_csv(y_test.path)\n    scenario_df = pd.read_csv(scenario_test.path)\n\
+          \n    y_true = y_test_df[\"score\"]\n    scenario_ids = scenario_df[\"scenario_id\"\
+          ]\n\n    print(f\"Training Samples : {len(X_train)}\")\n    print(f\"Testing\
+          \ Samples  : {len(X_test)}\")\n\n    print(\"=\" * 60)\n    print(\"Generating\
+          \ Predictions and Calculating Metrics Per Model\")\n    print(\"=\" * 60)\n\
+          \n    rows = []\n\n    for name, mdl in trained_models.items():\n\n    \
+          \    train_preds = mdl.predict(X_train)\n        test_preds = mdl.predict(X_test)\n\
+          \n        train_rmse = mean_squared_error(y_train_true, train_preds) **\
+          \ 0.5\n        train_mae = mean_absolute_error(y_train_true, train_preds)\n\
+          \n        test_rmse, test_mae, top1 = compute_test_metrics(\n          \
+          \  y_true, test_preds, scenario_ids\n        )\n\n        rmse_gap = test_rmse\
+          \ - train_rmse\n        mae_gap = test_mae - train_mae\n\n        rows.append({\n\
+          \            \"model\": name,\n            \"train_rmse\": train_rmse,\n\
+          \            \"test_rmse\": test_rmse,\n            \"rmse_gap\": rmse_gap,\n\
+          \            \"train_mae\": train_mae,\n            \"test_mae\": test_mae,\n\
+          \            \"mae_gap\": mae_gap,\n            \"top1_agreement\": top1,\n\
+          \        })\n\n        print(\n            f\"[{name}] \"\n            f\"\
+          Train RMSE: {train_rmse:.4f} | Test RMSE: {test_rmse:.4f} | RMSE Gap: {rmse_gap:.4f}\
+          \ | \"\n            f\"Train MAE: {train_mae:.4f} | Test MAE: {test_mae:.4f}\
+          \ | MAE Gap: {mae_gap:.4f} | \"\n            f\"Top-1: {top1:.4f}\"\n  \
+          \      )\n\n    metrics_df = pd.DataFrame(rows)\n\n    print(\"=\" * 60)\n\
+          \    print(\"Saving Metrics CSV\")\n    print(\"=\" * 60)\n\n    metrics_df.to_csv(metrics_csv.path,\
+          \ index=False)\n\n    print(f\"Metrics CSV saved at : {metrics_csv.path}\"\
+          )\n\n    print(\"=\" * 60)\n    print(\"Logging Voting Regressor Metrics\"\
+          )\n    print(\"=\" * 60)\n\n    voting_row = metrics_df[metrics_df[\"model\"\
+          ] == \"voting_regressor\"].iloc[0]\n    metrics.log_metric(\"Test_RMSE\"\
+          , float(voting_row[\"test_rmse\"]))\n    metrics.log_metric(\"Test_MAE\"\
+          , float(voting_row[\"test_mae\"]))\n    metrics.log_metric(\"Top1_Agreement\"\
+          , float(voting_row[\"top1_agreement\"]))\n    metrics.log_metric(\"RMSE_Gap\"\
+          , float(voting_row[\"rmse_gap\"]))\n    metrics.log_metric(\"MAE_Gap\",\
+          \ float(voting_row[\"mae_gap\"]))\n\n    print(\"=\" * 60)\n    print(\"\
+          Evaluation Completed\")\n    print(\"=\" * 60)\n\n"
         image: pod-placement-trainer:v12
     exec-load-dataset:
       container:
@@ -436,7 +457,7 @@ deploymentSpec:
           )\n\n"
         image: pod-placement-trainer:v12
 pipelineInfo:
-  description: Voting Regressor Training Pipeline (RF, XGBoost, AdaBoost, CatBoost)
+  description: Voting Regressor Training Pipeline (RF, XGBoost, CatBoost, GBR, ExtraTrees)
   name: pod-placement-training-pipeline
 root:
   dag:
@@ -462,9 +483,17 @@ root:
               taskOutputArtifact:
                 outputArtifactKey: x_test
                 producerTask: preprocess
+            x_train:
+              taskOutputArtifact:
+                outputArtifactKey: x_train
+                producerTask: preprocess
             y_test:
               taskOutputArtifact:
                 outputArtifactKey: y_test
+                producerTask: preprocess
+            y_train:
+              taskOutputArtifact:
+                outputArtifactKey: y_train
                 producerTask: preprocess
         taskInfo:
           name: evaluate-model

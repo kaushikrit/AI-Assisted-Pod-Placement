@@ -6,6 +6,8 @@ from kfp.dsl import component, Input, Output, Dataset, Model, Metrics
 )
 def evaluate_model(
     model: Input[Model],
+    x_train: Input[Dataset],
+    y_train: Input[Dataset],
     x_test: Input[Dataset],
     y_test: Input[Dataset],
     scenario_test: Input[Dataset],
@@ -44,7 +46,7 @@ def evaluate_model(
 
         return matches / len(true_best_rows)
 
-    def compute_all_metrics(y_true, y_pred, scenario_ids):
+    def compute_test_metrics(y_true, y_pred, scenario_ids):
         rmse = mean_squared_error(y_true, y_pred) ** 0.5
         mae = mean_absolute_error(y_true, y_pred)
 
@@ -64,8 +66,11 @@ def evaluate_model(
     trained_models = joblib.load(model.path)
 
     print("=" * 60)
-    print("Loading test dataset")
+    print("Loading train and test datasets")
     print("=" * 60)
+
+    X_train = pd.read_csv(x_train.path)
+    y_train_true = pd.read_csv(y_train.path)["score"]
 
     X_test = pd.read_csv(x_test.path)
     y_test_df = pd.read_csv(y_test.path)
@@ -74,31 +79,47 @@ def evaluate_model(
     y_true = y_test_df["score"]
     scenario_ids = scenario_df["scenario_id"]
 
-    print(f"Testing Samples : {len(X_test)}")
+    print(f"Training Samples : {len(X_train)}")
+    print(f"Testing Samples  : {len(X_test)}")
 
     print("=" * 60)
-    print("Generating Predictions")
-    print("=" * 60)
-
-    predictions = {}
-    for name, mdl in trained_models.items():
-        predictions[name] = mdl.predict(X_test)
-
-    print("=" * 60)
-    print("Calculating Metrics Per Model")
+    print("Generating Predictions and Calculating Metrics Per Model")
     print("=" * 60)
 
     rows = []
-    for name, preds in predictions.items():
-        rmse, mae, top1 = compute_all_metrics(y_true, preds, scenario_ids)
+
+    for name, mdl in trained_models.items():
+
+        train_preds = mdl.predict(X_train)
+        test_preds = mdl.predict(X_test)
+
+        train_rmse = mean_squared_error(y_train_true, train_preds) ** 0.5
+        train_mae = mean_absolute_error(y_train_true, train_preds)
+
+        test_rmse, test_mae, top1 = compute_test_metrics(
+            y_true, test_preds, scenario_ids
+        )
+
+        rmse_gap = test_rmse - train_rmse
+        mae_gap = test_mae - train_mae
+
         rows.append({
             "model": name,
-            "rmse": rmse,
-            "mae": mae,
+            "train_rmse": train_rmse,
+            "test_rmse": test_rmse,
+            "rmse_gap": rmse_gap,
+            "train_mae": train_mae,
+            "test_mae": test_mae,
+            "mae_gap": mae_gap,
             "top1_agreement": top1,
         })
 
-        print(f"[{name}] RMSE: {rmse:.4f} | MAE: {mae:.4f} | Top-1: {top1:.4f}")
+        print(
+            f"[{name}] "
+            f"Train RMSE: {train_rmse:.4f} | Test RMSE: {test_rmse:.4f} | RMSE Gap: {rmse_gap:.4f} | "
+            f"Train MAE: {train_mae:.4f} | Test MAE: {test_mae:.4f} | MAE Gap: {mae_gap:.4f} | "
+            f"Top-1: {top1:.4f}"
+        )
 
     metrics_df = pd.DataFrame(rows)
 
@@ -115,9 +136,11 @@ def evaluate_model(
     print("=" * 60)
 
     voting_row = metrics_df[metrics_df["model"] == "voting_regressor"].iloc[0]
-    metrics.log_metric("RMSE", float(voting_row["rmse"]))
-    metrics.log_metric("MAE", float(voting_row["mae"]))
+    metrics.log_metric("Test_RMSE", float(voting_row["test_rmse"]))
+    metrics.log_metric("Test_MAE", float(voting_row["test_mae"]))
     metrics.log_metric("Top1_Agreement", float(voting_row["top1_agreement"]))
+    metrics.log_metric("RMSE_Gap", float(voting_row["rmse_gap"]))
+    metrics.log_metric("MAE_Gap", float(voting_row["mae_gap"]))
 
     print("=" * 60)
     print("Evaluation Completed")

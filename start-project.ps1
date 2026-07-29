@@ -101,7 +101,7 @@ Write-Host "[4/7] Starting Scenario Service..."
 Start-Process powershell -ArgumentList `
     "-NoExit", `
     "-Command", `
-    "& '.\venv\Scripts\Activate.ps1'; uvicorn scenario_service.main:app --reload"
+    "& '.\.venv\Scripts\Activate.ps1'; uvicorn scenario_service.main:app --reload"
 
 
 # --------------------------------------------
@@ -113,7 +113,7 @@ Write-Host "[5/7] Starting Advisor API..."
 Start-Process powershell -ArgumentList `
     "-NoExit", `
     "-Command", `
-    "& '.\venv\Scripts\Activate.ps1'; uvicorn advisor_api.main:app --reload --port 8001"
+    "& '.\.venv\Scripts\Activate.ps1'; uvicorn advisor_api.main:app --reload --port 8001"
 
 
 # --------------------------------------------

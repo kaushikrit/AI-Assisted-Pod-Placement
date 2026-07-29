@@ -11,7 +11,7 @@ from components.upload_metrics import upload_metrics
 
 @pipeline(
     name="pod-placement-training-pipeline",
-    description="Voting Regressor Training Pipeline (RF, XGBoost, AdaBoost, CatBoost)"
+    description="Voting Regressor Training Pipeline (RF, XGBoost, CatBoost, GBR, ExtraTrees)"
 )
 def training_pipeline():
 
@@ -31,6 +31,8 @@ def training_pipeline():
 
     evaluate_task = evaluate_model(
         model=train_task.outputs["model"],
+        x_train=preprocess_task.outputs["x_train"],
+        y_train=preprocess_task.outputs["y_train"],
         x_test=preprocess_task.outputs["x_test"],
         y_test=preprocess_task.outputs["y_test"],
         scenario_test=preprocess_task.outputs["scenario_test"]
