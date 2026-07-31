@@ -25,11 +25,7 @@ def compute_score(cu_node, du_node, scenario):
     )
 
     if violation_count > 0:
-
-        return min(
-            100,
-            70 + (violation_count * 10)
-        )
+        return 100
 
     # =========================
     # UTILIZATION
